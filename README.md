@@ -26,7 +26,7 @@ defined, and `foo = bar` is specified:
 
 ```
 import config "github.com/gokyle/goconfig"
-func getFoo() string {
+func getFoo() []string {
         conf = config.ParseFile("config.conf")
         return conf["foo"]["bar"]
 }
