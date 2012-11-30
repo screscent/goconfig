@@ -9,7 +9,7 @@ import (
 )
 
 // ConfigMap is shorthand for the type used as a config struct.
-type ConfigMap map[string]map[string]string
+type ConfigMap map[string]map[string][]string
 
 var (
 	configSection = regexp.MustCompile("^\\s*\\[\\s*(\\w+)\\s*\\]\\s*$")
@@ -22,7 +22,7 @@ var DefaultSection = "default"
 
 // ParseFile takes the filename as a string and returns a ConfigMap.
 func ParseFile(fileName string) (cfg ConfigMap, err error) {
-        var file *os.File
+	var file *os.File
 
 	cfg = make(ConfigMap, 0)
 	file, err = os.Open(fileName)
@@ -36,24 +36,29 @@ func ParseFile(fileName string) (cfg ConfigMap, err error) {
 		line           string
 		longLine       bool
 		currentSection string
-                lineBytes       []byte
-                isPrefix        bool
+		lineBytes      []byte
+		isPrefix       bool
 	)
 
 	for {
 		err = nil
 		lineBytes, isPrefix, err = buf.ReadLine()
 		if io.EOF == err {
-                        err = nil
+			err = nil
 			break
-		} else if err != nil {
-			break
-		} else if isPrefix {
-			line += string(lineBytes)
+		}
 
+		if err != nil {
+			break
+		}
+
+		if isPrefix {
+			line += string(lineBytes)
 			longLine = true
 			continue
-		} else if longLine {
+		}
+
+		if longLine {
 			line += string(lineBytes)
 			longLine = false
 		} else {
@@ -62,44 +67,56 @@ func ParseFile(fileName string) (cfg ConfigMap, err error) {
 
 		if commentLine.MatchString(line) {
 			continue
-		} else if blankLine.MatchString(line) {
+		}
+
+		if blankLine.MatchString(line) {
 			continue
-		} else if configSection.MatchString(line) {
-			section := configSection.ReplaceAllString(line,
-				"$1")
+		}
+
+		if configSection.MatchString(line) {
+			section := configSection.ReplaceAllString(line, "$1")
 			if section == "" {
 				err = fmt.Errorf("invalid structure in file")
 				break
-			} else if !cfg.SectionInConfig(section) {
-				cfg[section] = make(map[string]string, 0)
+			}
+
+			if !cfg.SectionInConfig(section) {
+				cfg[section] = make(map[string][]string, 0)
 			}
 			currentSection = section
-		} else if configLine.MatchString(line) {
-                        if currentSection == "" {
-                                currentSection = DefaultSection
-                        }
+			continue
+		}
+
+		if configLine.MatchString(line) {
+			if currentSection == "" {
+				currentSection = DefaultSection
+			}
 			key := configLine.ReplaceAllString(line, "$1")
 			val := configLine.ReplaceAllString(line, "$2")
 			if key == "" {
 				continue
 			}
-			cfg[currentSection][key] = val
-		} else {
-                        err = fmt.Errorf("invalid config file")
-                        break
-                }
+			if _, ok := cfg[currentSection][key]; !ok {
+				strs := make([]string, 0)
+				strs = append(strs, val)
+				cfg[currentSection][key] = strs
+				continue
+			}
+			cfg[currentSection][key] = append(cfg[currentSection][key], val)
+			continue
+		}
+
+		err = fmt.Errorf("invalid config file")
+		break
 	}
+
 	return
 }
 
 // SectionInConfig determines whether a section is in the configuration.
 func (c *ConfigMap) SectionInConfig(section string) bool {
-	for s, _ := range *c {
-		if section == s {
-			return true
-		}
-	}
-	return false
+	_, ok := (*c)[section]
+	return ok
 }
 
 // ListSections returns the list of sections in the config map.
