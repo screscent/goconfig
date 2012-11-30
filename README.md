@@ -25,7 +25,7 @@ a `map[string]map[string]string`. For example, if the section `foo` is
 defined, and `foo = bar` is specified:
 
 ```
-import config "github.com/gokyle/goconfig"
+import config "github.com/screscent/goconfig"
 func getFoo() []string {
         conf = config.ParseFile("config.conf")
         return conf["foo"]["bar"]
